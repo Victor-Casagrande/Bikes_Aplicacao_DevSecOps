@@ -1,0 +1,496 @@
+{
+  "info": {
+    "name": "Bikes",
+    "description": "API de usuários do projeto Bikes. Execute em ordem (Run collection): o Create salva o id usado nas demais requisições.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Usuarios - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        },
+        "description": "Cria um usuário. Salva o id retornado na variável usuarioId.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"123456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// e-mail único a cada execução, para não gerar 409",
+              "pm.collectionVariables.set(\"username\", `usuario${Date.now()}@bikes.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set(\"usuarioId\", body.id);",
+              "pm.test(\"Retorna id, username e role\", () => {",
+              "    pm.expect(body.id).to.be.a(\"number\");",
+              "    pm.expect(body.username).to.eql(pm.collectionVariables.get(\"username\"));",
+              "    pm.expect(body.role).to.eql(\"CLIENTE\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Create username duplicado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        },
+        "description": "Mesmo username do Create: UsernameUniqueViolationException (409).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"123456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Create campos inválidos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        },
+        "description": "Bean Validation: e-mail inválido e senha fora de 6 caracteres (422).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"nao-e-email\",\n  \"password\": \"123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Erros por campo\", () => pm.expect(pm.response.json().errors).to.have.all.keys(\"username\", \"password\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - GET Id",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Mesmo id\", () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"usuarioId\"))));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - GET Id inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "999999"
+          ]
+        },
+        "description": "EntityNotFoundException (404)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Mensagem: Usuário com id=999999 não encontrado\", () => pm.expect(pm.response.json().message).to.eql(\"Usuário com id=999999 não encontrado\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - GET All",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Retorna lista\", () => pm.expect(pm.response.json()).to.be.an(\"array\").that.is.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Update password com confirmação",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        },
+        "description": "Altera a senha informando senha atual, nova senha e confirmação (204).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senhaAtual\": \"123456\",\n  \"novaSenha\": \"654321\",\n  \"confirmaSenha\": \"654321\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Update password senha atual incorreta",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        },
+        "description": "PasswordInvalidException: senha atual não confere (400).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senhaAtual\": \"000000\",\n  \"novaSenha\": \"111111\",\n  \"confirmaSenha\": \"111111\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Mensagem: Sua senha atual não confere\", () => pm.expect(pm.response.json().message).to.eql(\"Sua senha atual não confere\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Update password confirmação diferente",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        },
+        "description": "PasswordInvalidException: nova senha diferente da confirmação (400).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senhaAtual\": \"654321\",\n  \"novaSenha\": \"111111\",\n  \"confirmaSenha\": \"222222\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Mensagem: Nova senha não confere com a confirmação de senha\", () => pm.expect(pm.response.json().message).to.eql(\"Nova senha não confere com a confirmação de senha\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Update password campos inválidos",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        },
+        "description": "UsuarioSenhaDTO validado: campos obrigatórios com 6 caracteres (422).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senhaAtual\": \"\",\n  \"novaSenha\": \"123\",\n  \"confirmaSenha\": \"1234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Erros por campo\", () => pm.expect(pm.response.json().errors).to.have.all.keys(\"senhaAtual\", \"novaSenha\", \"confirmaSenha\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios - Update password usuário inexistente",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "999999"
+          ]
+        },
+        "description": "EntityNotFoundException (404).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"senhaAtual\": \"123456\",\n  \"novaSenha\": \"654321\",\n  \"confirmaSenha\": \"654321\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "usuarioId",
+      "value": ""
+    },
+    {
+      "key": "username",
+      "value": ""
+    }
+  ]
+}

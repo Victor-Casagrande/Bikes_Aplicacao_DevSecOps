@@ -61,14 +61,24 @@ export default function () {
       "GET /usuarios/{id} - 200": (r) => r.status === 200,
     });
 
-    // PATCH - alterar senha
+    // PATCH - alterar senha (senha atual + nova senha + confirmação)
     const patchRes = http.patch(
       `${BASE_URL}/api/v1/usuarios/${userId}`,
-      JSON.stringify({ password: "nova12" }),
+      JSON.stringify({ senhaAtual: "senha1", novaSenha: "nova12", confirmaSenha: "nova12" }),
       { headers }
     );
     check(patchRes, {
-      "PATCH /usuarios/{id} - 200": (r) => r.status === 200,
+      "PATCH /usuarios/{id} - 204": (r) => r.status === 204,
+    });
+
+    // PATCH com confirmação diferente - gerar 400 (PasswordInvalidException)
+    const patchInvalidoRes = http.patch(
+      `${BASE_URL}/api/v1/usuarios/${userId}`,
+      JSON.stringify({ senhaAtual: "nova12", novaSenha: "outra1", confirmaSenha: "outra2" }),
+      { headers }
+    );
+    check(patchInvalidoRes, {
+      "PATCH /usuarios/{id} confirmação diferente - 400": (r) => r.status === 400,
     });
   }
 

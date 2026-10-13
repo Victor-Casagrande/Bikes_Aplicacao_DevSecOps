@@ -123,7 +123,7 @@ bikes-prometheus   prom/prometheus:v3.4.1                Up (healthy)
 docker compose --profile loadtest up loadtest
 ```
 
-O script k6 ([loadtest/script.js](loadtest/script.js)) roda por 2 minutos (até 10 usuários virtuais) e exercita todos os cenários: `201`, `200`, `422` (validação), `404` e `500`, além de logs DEBUG/INFO/WARN/ERROR.
+O script k6 ([loadtest/script.js](loadtest/script.js)) roda por 2 minutos (até 10 usuários virtuais) e exercita todos os cenários: `201`, `200`, `204`, `400` (senha), `422` (validação), `404` e `500`, além de logs DEBUG/INFO/WARN/ERROR.
 
 ### 3. Parar e limpar
 
@@ -137,10 +137,10 @@ docker compose --profile loadtest down -v --remove-orphans
 
 | Método | Rota | Descrição | Respostas |
 |--------|------|-----------|-----------| 
-| `POST` | `/api/v1/usuarios` | Cria usuário (`username` = e-mail, `password` = 6 caracteres) | `201`, `422` |
+| `POST` | `/api/v1/usuarios` | Cria usuário (`username` = e-mail, `password` = 6 caracteres) | `201`, `409`, `422` |
 | `GET` | `/api/v1/usuarios` | Lista usuários | `200` |
 | `GET` | `/api/v1/usuarios/{id}` | Busca por id | `200`, `404` |
-| `PATCH` | `/api/v1/usuarios/{id}` | Atualiza a senha | `200`, `404` |
+| `PATCH` | `/api/v1/usuarios/{id}` | Altera a senha (senha atual, nova senha e confirmação) | `204`, `400`, `404`, `422` |
 | `GET` | `/api/v1/demo/log` | Emite logs DEBUG/INFO/WARN/ERROR (evidência do Graylog) | `200` |
 | `GET` | `/api/v1/demo/log/error` | Simula erro 500 | `500` |
 
@@ -158,6 +158,34 @@ Entradas inválidas retornam `422` com os erros por campo (`ApiExceptionHandler`
 {"errors":{"password":"tamanho deve ser entre 6 e 6","username":"O email deve ser válido"},
  "message":"Campo(s) inválido(s)","method":"POST","path":"/api/v1/usuarios",
  "status":422,"statusMessage":"Unprocessable Content"}
+```
+
+### Alterar senha
+
+O `PATCH /api/v1/usuarios/{id}` recebe um `UsuarioSenhaDTO`, com os três campos obrigatórios e com 6 caracteres:
+
+```json
+{"senhaAtual":"123456","novaSenha":"654321","confirmaSenha":"654321"}
+```
+
+| Situação | Resposta |
+|----------|----------|
+| Senha alterada | `204 No Content` |
+| `novaSenha` diferente de `confirmaSenha` | `400`: "Nova senha não confere com a confirmação de senha" (`PasswordInvalidException`) |
+| `senhaAtual` incorreta | `400`: "Sua senha atual não confere" (`PasswordInvalidException`) |
+| Campo vazio ou fora de 6 caracteres | `422` com erros por campo |
+| Usuário inexistente | `404` (`EntityNotFoundException`) |
+
+As exceções de negócio ficam em `br.edu.ifc.bikes.exception` e são convertidas em `ErrorMessage` pelo `ApiExceptionHandler`. Um username repetido no cadastro gera `409` (`UsernameUniqueViolationException`).
+
+### Coleção Postman
+
+[postman/Bikes.postman_collection.json](postman/Bikes.postman_collection.json) tem 11 requisições com testes automáticos: cadastro, conflito, validações, buscas e todos os casos de alteração de senha. Para usar no Postman Desktop: **Import**, selecione o arquivo e depois **Run collection**. O `Create` salva o id do usuário, que é usado pelas requisições seguintes.
+
+Também é possível executar pela linha de comando, com a stack no ar:
+
+```bash
+docker run --rm --network bikes_bikes-net -v "$PWD/postman:/etc/newman" postman/newman:6-alpine run Bikes.postman_collection.json --env-var baseUrl=http://app:8080
 ```
 
 ![Swagger UI](docs/evidencias/swagger-ui.png)
@@ -195,7 +223,7 @@ uid=100(spring) gid=101(spring)
 
 ```mermaid
 flowchart LR
-    A[push / PR] --> B["Job 1: Compilação e Testes<br/>./mvnw verify (9 testes)"]
+    A[push / PR] --> B["Job 1: Compilação e Testes<br/>./mvnw verify (16 testes)"]
     B --> C["Job 2: Build Multistage<br/>(buildx + cache GHA)"]
     C --> D[Verifica runtime<br/>sem javac/mvn]
     D --> E[Scan Trivy<br/>HIGH/CRITICAL]
@@ -303,12 +331,12 @@ Além do endpoint de demonstração, a aplicação registra eventos reais de neg
 
 ## Testes automatizados
 
-9 testes executados pela esteira (`./mvnw verify`):
+16 testes executados pela esteira (`./mvnw verify`):
 
 | Classe | O que valida |
 |--------|--------------|
 | `BikesApplicationTests` | Contexto Spring sobe |
-| `UsuarioControllerTest` | `201` na criação, `422` com erros por campo, `200`/`404` na busca, `200` no PATCH, listagem |
+| `UsuarioControllerTest` | Cadastro (`201`, `409`, `422`), busca (`200`, `404` com mensagem) e listagem. Alteração de senha (atividades 01 e 02 da disciplina): sucesso com `isNoContent()` e a senha antiga deixando de valer, `400` para senha atual inválida, `400` para senha e confirmação diferentes, `422` para campos vazios, com menos e com mais de 6 caracteres, e `404` |
 | `ObservabilidadeTest` | `/actuator/health` = `UP` e `/actuator/prometheus` expõe métricas da JVM (contrato usado pelo compose e pelo Prometheus) |
 
 Rodar localmente sem instalar Java:
@@ -333,9 +361,10 @@ grafana/provisioning/
   dashboards/                           # provider + dashboard JSON
 graylog/init-gelf-input.sh              # cria o input GELF via API (idempotente)
 loadtest/script.js                      # carga k6 (perfil "loadtest")
+postman/Bikes.postman_collection.json   # coleção Postman com testes da API
 docs/evidencias/                        # prints usados neste README
 src/
-  main/java/br/edu/ifc/bikes/           # config, dto, entity, repository, service, web
+  main/java/br/edu/ifc/bikes/           # config, dto, entity, exception, repository, service, web
   main/resources/                       # application.properties, logback-spring.xml (GELF)
   test/                                 # testes + H2 + logback-test.xml
 ```

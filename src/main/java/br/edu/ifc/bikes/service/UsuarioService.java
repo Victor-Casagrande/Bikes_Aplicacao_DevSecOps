@@ -4,10 +4,14 @@ import br.edu.ifc.bikes.dto.UsuarioRequestDTO;
 import br.edu.ifc.bikes.dto.UsuarioResponseDTO;
 import br.edu.ifc.bikes.dto.mapper.UsuarioMapper;
 import br.edu.ifc.bikes.entity.Usuario;
+import br.edu.ifc.bikes.exception.EntityNotFoundException;
+import br.edu.ifc.bikes.exception.PasswordInvalidException;
+import br.edu.ifc.bikes.exception.UsernameUniqueViolationException;
 import br.edu.ifc.bikes.repository.UsuarioRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,36 +25,47 @@ public class UsuarioService {
     private final UsuarioMapper usuarioMapper;
 
     public UsuarioResponseDTO create(UsuarioRequestDTO usuarioRequestDTO) {
-        Usuario usuario = usuarioMapper.toUsuario(usuarioRequestDTO);
-        Usuario salvo = usuarioRepository.save(usuario);
-        log.info("Usuário criado: id={}", salvo.getId()); // e-mail (PII) não é logado
-        return usuarioMapper.toResponse(salvo);
+        try {
+            Usuario usuario = usuarioMapper.toUsuario(usuarioRequestDTO);
+            Usuario salvo = usuarioRepository.save(usuario);
+            log.info("Usuário criado: id={}", salvo.getId()); // e-mail (PII) não é logado
+            return usuarioMapper.toResponse(salvo);
+        } catch (DataIntegrityViolationException ex) {
+            // Só a violação de unicidade vira 409; outras falhas de banco continuam como erro 500
+            throw new UsernameUniqueViolationException(String.format("O nome do usuário '%s' já existe", usuarioRequestDTO.username()));
+        }
     }
 
     @Transactional()
     public UsuarioResponseDTO getById(Long id) {
         log.debug("Buscando usuário id={}", id);
-        Usuario usuario = usuarioRepository.findById(id).orElse(null);
-        if (usuario == null) {
-            log.warn("Usuário não encontrado: id={}", id);
-        }
-        return usuarioMapper.toResponse(usuario);
+        return usuarioMapper.toResponse(buscarPorId(id));
     }
 
-    public UsuarioResponseDTO updatePassword(Long id, String password) {
-        Usuario usuario = usuarioRepository.findById(id).orElse(null);
-        if (usuario != null) {
-            usuario.setPassword(password);
-            log.info("Senha atualizada: id={}", id);
-            return usuarioMapper.toResponse(usuarioRepository.save(usuario));
+    @Transactional()
+    public void updatePassword(Long id, String senhaAtual, String novaSenha, String confirmaSenha) {
+        if (!novaSenha.equals(confirmaSenha)) {
+            throw new PasswordInvalidException("Nova senha não confere com a confirmação de senha");
         }
-        log.warn("Atualização de senha para usuário inexistente: id={}", id);
-        return null;
+
+        Usuario usuario = buscarPorId(id);
+        if (!usuario.getPassword().equals(senhaAtual)) {
+            throw new PasswordInvalidException("Sua senha atual não confere");
+        }
+
+        usuario.setPassword(novaSenha);
+        log.info("Senha atualizada: id={}", id);
     }
 
     public List<UsuarioResponseDTO> getAll() {
         List<Usuario> usuarios = usuarioRepository.findAll();
         log.debug("Listagem de usuários: {} registro(s)", usuarios.size());
         return usuarioMapper.toResponse(usuarios);
+    }
+
+    private Usuario buscarPorId(Long id) {
+        return usuarioRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException(String.format("Usuário com id=%d não encontrado", id))
+        );
     }
 }
