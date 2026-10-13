@@ -31,8 +31,10 @@ public class UsuarioService {
             log.info("Usuário criado: id={}", salvo.getId()); // e-mail (PII) não é logado
             return usuarioMapper.toResponse(salvo);
         } catch (DataIntegrityViolationException ex) {
-            // Só a violação de unicidade vira 409; outras falhas de banco continuam como erro 500
-            throw new UsernameUniqueViolationException(String.format("O nome do usuário '%s' já existe", usuarioRequestDTO.username()));
+            // Só a violação de unicidade vira 409; outras falhas de banco continuam como
+            // erro 500
+            throw new UsernameUniqueViolationException(
+                    String.format("O nome do usuário '%s' já existe", usuarioRequestDTO.username()));
         }
     }
 
@@ -65,7 +67,6 @@ public class UsuarioService {
 
     private Usuario buscarPorId(Long id) {
         return usuarioRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException(String.format("Usuário com id=%d não encontrado", id))
-        );
+                () -> new EntityNotFoundException(String.format("Usuário com id=%d não encontrado", id)));
     }
 }
