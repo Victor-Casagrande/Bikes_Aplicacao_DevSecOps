@@ -232,7 +232,7 @@ flowchart LR
 
 | Etapa | Detalhe |
 |-------|---------| 
-| **Compilação e testes** | Java 25 (Temurin) com cache Maven; `./mvnw -B verify`; resumo dos testes no *job summary* e relatórios Surefire como artefato |
+| **Compilação e testes** | Java 25 (Temurin) com cache Maven; `./mvnw -B verify`; resumo dos testes no *job summary* e relatórios Surefire e Failsafe como artefato |
 | **Build da imagem** | `docker/build-push-action` com o Dockerfile multistage e cache `type=gha` (a imagem é construída uma única vez) |
 | **Segurança** | Verificação de runtime enxuto + scan de vulnerabilidades com Trivy (relatório no *job summary* e como artefato) |
 | **Publicação** | Push para o GitHub Container Registry: `sha-<commit>`, `latest` (branch padrão) e `pr-<n>` (PRs internos). PRs de forks fazem build + scan, sem push |
@@ -264,7 +264,7 @@ Práticas DevSecOps aplicadas na esteira:
 
 ## Observabilidade - Grafana
 
-Datasource e dashboard provisionados como código em [grafana/provisioning/](grafana/provisioning/). Nada é configurado manualmente. Dashboard **"Bikes - JVM & Spring Boot"** (21 painéis, atualização a cada 10 s):
+Datasource e dashboard provisionados como código em [grafana/provisioning/](grafana/provisioning/). Nada é configurado manualmente. Dashboard **"Bikes - JVM & Spring Boot"** (16 painéis em 5 seções, atualização a cada 10 s):
 
 | Seção | Painéis | Requisito do enunciado |
 |-------|---------|------------------------|
@@ -325,7 +325,7 @@ Além do endpoint de demonstração, a aplicação registra eventos reais de neg
    - telemetria do Graylog desligada (`GRAYLOG_TELEMETRY_ENABLED=false`).
 7. **Testes independentes da infraestrutura**: nos testes, H2 em memória substitui o MySQL e um `logback-test.xml` só com console substitui o GELF. Assim a esteira roda sem Docker e sem Graylog.
 8. **`.env` versionado de propósito**: contém apenas valores do ambiente de avaliação (senha `admin` do Graylog, senha do MySQL local), necessários para o `docker compose up` funcionar sem nenhum passo manual. Em produção esses valores viriam de um cofre de segredos.
-9. **Sincronização com o projeto base**: o código de domínio segue o repositório da disciplina (validação, `ApiExceptionHandler`, SpringDoc). As adições deste trabalho (Actuator, Micrometer, GELF, variáveis `DB_*`) ficam isoladas no `pom.xml` e no `application.properties`. A versão do `spring-boot-starter-validation` é gerenciada pelo parent, para evitar misturar uma versão milestone com o Boot 4.1.1.
+9. **Sincronização com o projeto base**: o código de domínio segue o repositório da disciplina (validação, `ApiExceptionHandler`, SpringDoc). As adições deste trabalho ficam concentradas na configuração (Actuator, Micrometer e GELF no `pom.xml`, variáveis `DB_*` no `application.properties`, `logback-spring.xml`), nos logs de negócio do `UsuarioService` e do `ApiExceptionHandler` e no `DemoLogController` (pacote `demo`). A versão do `spring-boot-starter-validation` é gerenciada pelo parent, para evitar misturar uma versão milestone com o Boot 4.1.1.
 
 ---
 
@@ -367,7 +367,7 @@ docs/evidencias/                        # prints usados neste README
 src/
   main/java/br/edu/ifc/bikes/           # config, dto, entity, exception, repository, service, web
   main/resources/                       # application.properties, logback-spring.xml (GELF)
-  test/                                 # testes + H2 + logback-test.xml
+  test/                                 # testes + H2 + logback-test.xml + scripts SQL do UsuarioIT
 ```
 
 ---

@@ -15,7 +15,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Sql(scripts = "/sql/usuarios/usuarios-insert.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/sql/usuarios/usuarios-delete.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-public class UsuarioIT extends RuntimeException {
+public class UsuarioIT {
     @LocalServerPort
     int port;
 
@@ -29,7 +29,7 @@ public class UsuarioIT extends RuntimeException {
                 .build();
     }
     @Test
-    public void criarUsuario_UsernamePasswordInvalidos_RetornaUsuarioCriado(){
+    public void criarUsuario_UsernamePasswordValidos_RetornaUsuarioCriado(){
         UsuarioResponseDTO responseBody = testClient
                 .post()
                 .uri("/api/v1/usuarios")
@@ -124,7 +124,7 @@ public class UsuarioIT extends RuntimeException {
     }
 
     @Test
-    public void buscarUsuario_IdInexistente_RetornaUsuario(){
+    public void buscarUsuario_IdInexistente_RetornaErrorMessageStatus404(){
         ErrorMessage responseBody = testClient
                 .get()
                 .uri("/api/v1/usuarios/110")

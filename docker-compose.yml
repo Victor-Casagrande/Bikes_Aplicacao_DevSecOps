@@ -2,6 +2,10 @@
 # Grafana + Graylog + MongoDB + OpenSearch
 # Comando único: docker compose up --build
 
+# Nome fixo do projeto: imagem (bikes-app) e rede (bikes_bikes-net) não dependem
+# do nome da pasta em que o repositório foi clonado
+name: bikes
+
 networks:
   bikes-net:
     driver: bridge
