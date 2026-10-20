@@ -44,9 +44,13 @@ jobs:
         if: always()
         run: |
           {
-            echo "### Testes (Surefire)"
+            echo "### Testes unitários e de controller (Surefire)"
             echo '```'
             grep -h "Tests run" target/surefire-reports/*.txt 2>/dev/null || echo "Sem relatórios"
+            echo '```'
+            echo "### Testes de integração - UsuarioIT (Failsafe)"
+            echo '```'
+            grep -h "Tests run" target/failsafe-reports/*.txt 2>/dev/null || echo "Sem relatórios"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -55,7 +59,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: surefire-reports
-          path: target/surefire-reports/
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
           retention-days: 7
 
   build-scan-publish:

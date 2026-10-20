@@ -223,7 +223,7 @@ uid=100(spring) gid=101(spring)
 
 ```mermaid
 flowchart LR
-    A[push / PR] --> B["Job 1: Compilação e Testes<br/>./mvnw verify (16 testes)"]
+    A[push / PR] --> B["Job 1: Compilação e Testes<br/>./mvnw verify (25 testes)"]
     B --> C["Job 2: Build Multistage<br/>(buildx + cache GHA)"]
     C --> D[Verifica runtime<br/>sem javac/mvn]
     D --> E[Scan Trivy<br/>HIGH/CRITICAL]
@@ -331,13 +331,14 @@ Além do endpoint de demonstração, a aplicação registra eventos reais de neg
 
 ## Testes automatizados
 
-16 testes executados pela esteira (`./mvnw verify`):
+25 testes executados pela esteira (`./mvnw verify`): 16 pelo Surefire e 9 de integração (`*IT`) pelo Failsafe.
 
 | Classe | O que valida |
 |--------|--------------|
 | `BikesApplicationTests` | Contexto Spring sobe |
 | `UsuarioControllerTest` | Cadastro (`201`, `409`, `422`), busca (`200`, `404` com mensagem) e listagem. Alteração de senha (atividades 01 e 02 da disciplina): sucesso com `isNoContent()` e a senha antiga deixando de valer, `400` para senha atual inválida, `400` para senha e confirmação diferentes, `422` para campos vazios, com menos e com mais de 6 caracteres, e `404` |
 | `ObservabilidadeTest` | `/actuator/health` = `UP` e `/actuator/prometheus` expõe métricas da JVM (contrato usado pelo compose e pelo Prometheus) |
+| `UsuarioIT` | Testes de integração da disciplina: sobe a aplicação em porta aleatória e chama a API via `WebTestClient`, com dados carregados por `@Sql` (`src/test/resources/sql/usuarios`). Cadastro (`201`, `409`, `422`), busca (`200`, `404`) e alteração de senha (`204` com `isNoContent()`, `400` para senha atual inválida, `400` para senha e confirmação diferentes, `422` para campos vazios, com menos e com mais de 6 caracteres) |
 
 Rodar localmente sem instalar Java:
 
